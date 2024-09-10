@@ -1,0 +1,46 @@
+[
+    {
+        "text": "Gesetze / Verordnungen",
+        "href": "aktuell.html"
+    },
+    {
+        "text": "Aktualitätendienst",
+        "href": "aktuDienst.html"
+    },
+    {
+        "text": "Titelsuche",
+        "href": "titelsuche.html"
+    },
+    {
+        "text": "Volltextsuche",
+        "href": "volltextsuche.html"
+    },
+    {
+        "text": "Translations",
+        "href": "Teilliste_translations.html"
+    },
+    {
+        "text": "Hinweise",
+        "href": "hinweise.html"
+    },
+    {
+        "text": "Tastenkombinationen",
+        "href": "hilfe.html"
+    },
+    {
+        "text": "Landesrecht",
+        "href": "http://www.justiz.de/onlinedienste/bundesundlandesrecht/index.php"
+    },
+    {
+        "text": "Rechtsprechung im Internet",
+        "href": "https://www.rechtsprechung-im-internet.de"
+    },
+    {
+        "text": "Verwaltungsvorschriften im Internet",
+        "href": "https://www.verwaltungsvorschriften-im-internet.de"
+    },
+    {
+        "text": "N-Lex",
+        "href": "https://n-lex.europa.eu/n-lex/"
+    }
+]
