@@ -3,13 +3,14 @@ import json
 from bs4 import BeautifulSoup as bs
 import requests
 from urllib.parse import urljoin
-
+import re
 
 BASE_URL = "https://www.gesetze-im-internet.de/"
 
 DIR =  "data/"
 HOME_PAGE_LIST_FNAME = "home_page_list.json"
-
+LAWS_LIST = "laws_list.json"
+ALPHAB_LAWS_LIST_DIR = "laws_list_by_alphabet"
 def write_to_json(data, file_name) -> None:
     os.makedirs(DIR, exist_ok=True)
     with open(os.path.join(DIR, file_name), "w", encoding="utf-8") as file:
@@ -39,24 +40,37 @@ def home_page_list(obj = get_page_object()) -> list:
                 text = a_tag.text
                 href = a_tag.get("href")
                 data.append({"text": text, "href": href})
-
-        print(json.dumps(data, indent=4, ensure_ascii=False))
         write_to_json(data, HOME_PAGE_LIST_FNAME)
+        return data
     else:
         print("Navigation element not found.")
+        exit(1)
 
 
-def get_laws_alphabetically_list(relative_url):
+def get_laws_alphabetically_list(relative_url = home_page_list()[0]['href']):
+    llist = []
     full_path = urljoin(BASE_URL, relative_url)
     page_object = get_page_object(full_path)
-    print(full_path)
     laws_list = page_object.find(id="content_2022")
     laws_list = laws_list.find(id="paddingLR12")
     laws_list = laws_list.find_all('a')
-    return laws_list
+    for a in laws_list:
+        a_tag = a
+        if a_tag:
+            text = a_tag.text
+            href = a_tag.get("href")
+            llist.append({"text": text, "href": re.sub("./", "", href)}) 
+    write_to_json(llist, LAWS_LIST)   
+    return llist
 
+def get_laws_by_alphabet(base_url = BASE_URL, laws_list = get_laws_alphabetically_list()):
+    for law in laws_list:
+        os.makedirs(os.path.join(DIR,ALPHAB_LAWS_LIST_DIR), exist_ok=True)
+        print(law)
 
 
 # home_page_list()
-data = load_json_data()
-print(get_laws_alphabetically_list(data[0]['href']))
+# data = load_json_data(LAWS_LIST)
+# print(data)
+
+print(get_laws_by_alphabet())
