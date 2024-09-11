@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup as bs
 import requests
 from urllib.parse import urljoin
 import re
+from tqdm import tqdm
 
 BASE_URL = "https://www.gesetze-im-internet.de/"
 
@@ -63,10 +64,53 @@ def get_laws_alphabetically_list(relative_url = home_page_list()[0]['href']):
     write_to_json(llist, LAWS_LIST)   
     return llist
 
-def get_laws_by_alphabet(base_url = BASE_URL, laws_list = get_laws_alphabetically_list()):
-    for law in laws_list:
-        os.makedirs(os.path.join(DIR,ALPHAB_LAWS_LIST_DIR), exist_ok=True)
-        print(law)
+def get_laws_by_alphabet(base_url=BASE_URL, laws_list=None) -> list:
+    if laws_list is None:
+        laws_list = load_json_data('laws_list.json')
+    
+    os.makedirs(os.path.join(DIR, ALPHAB_LAWS_LIST_DIR), exist_ok=True)
+
+    laws_info = []
+
+    for law in tqdm(laws_list):
+        partial_list_of_laws = urljoin(base_url, law['href'])
+        page_object = get_page_object(partial_list_of_laws)
+
+        # Find the table with the content
+        table = page_object.find(id="content_2022")
+        if table:
+            table_items_list = table.find(id="paddingLR12")
+            if table_items_list:
+                table_items = table_items_list.find_all('p')
+                each_law = []
+                for item in table_items:
+                    # Find the webpage link and details
+                    law_link_tag = item.find('a', href=True)
+                    if law_link_tag:
+                        law_webpage_link = urljoin(base_url, law_link_tag['href'])
+                        title= law_link_tag.text.strip()
+                        description = law_link_tag.find('abbr')['title'] if law_link_tag.find('abbr') else ''
+                        
+                        pdf_link_tag = item.find('a', href=True, title=lambda t: t is not None and 'PDF' in t)
+                        pdf_link = urljoin(base_url, pdf_link_tag['href']) if pdf_link_tag else None
+
+                        each_law.append({
+                            'webpage_link': law_webpage_link,
+                            'title': title,
+                            'description': description,
+                            'pdf_link': pdf_link
+                        })
+                laws_info.extend(each_law)
+                law_file_name = os.path.join(ALPHAB_LAWS_LIST_DIR, re.sub(".html","",law['href']) + ".json")
+                
+                #Write each alphabet to individual file
+                write_to_json(each_law, law_file_name)
+
+    #Write all laws into one single file
+    write_to_json(laws_info, os.path.join(DIR, ALPHAB_LAWS_LIST_DIR, 'full_laws_list.json'))
+
+    return laws_info
+
 
 
 # home_page_list()
