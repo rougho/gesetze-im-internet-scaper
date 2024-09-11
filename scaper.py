@@ -12,6 +12,8 @@ DIR =  "data/"
 HOME_PAGE_LIST_FNAME = "home_page_list.json"
 LAWS_LIST = "laws_list.json"
 ALPHAB_LAWS_LIST_DIR = "laws_list_by_alphabet"
+
+
 def write_to_json(data, file_name) -> None:
     os.makedirs(DIR, exist_ok=True)
     with open(os.path.join(DIR, file_name), "w", encoding="utf-8") as file:
@@ -107,7 +109,7 @@ def get_laws_by_alphabet(base_url=BASE_URL, laws_list=None) -> list:
                 write_to_json(each_law, law_file_name)
 
     #Write all laws into one single file
-    write_to_json(laws_info, os.path.join(DIR, ALPHAB_LAWS_LIST_DIR, 'full_laws_list.json'))
+    write_to_json(laws_info, os.path.join(ALPHAB_LAWS_LIST_DIR, 'full_laws_list.json'))
 
     return laws_info
 
@@ -116,5 +118,5 @@ def get_laws_by_alphabet(base_url=BASE_URL, laws_list=None) -> list:
 # home_page_list()
 # data = load_json_data(LAWS_LIST)
 # print(data)
-
-print(get_laws_by_alphabet())
+get_laws_alphabetically_list()
+get_laws_by_alphabet()
