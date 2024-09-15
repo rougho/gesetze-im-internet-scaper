@@ -5,14 +5,57 @@ import requests
 from urllib.parse import urljoin
 import re
 from tqdm import tqdm
+import aiohttp
+import asyncio
+import shutil
+from tqdm.asyncio import tqdm as async_tqdm
 
 BASE_URL = "https://www.gesetze-im-internet.de/"
-
 DIR =  "data/"
 HOME_PAGE_LIST_FNAME = "home_page_list.json"
 LAWS_LIST = "laws_list.json"
 ALPHAB_LAWS_LIST_DIR = "laws_list_by_alphabet"
+PDF_DIR = os.path.join(DIR, "pdf")
+SEMAPHORE_LIMIT = 10
+DELAY_BETWEEN_LAWS = 5
 
+
+def list_files_in_directory(directory_path, exclude_file):
+    try:
+        files = [f for f in os.listdir(directory_path)
+                 if os.path.isfile(os.path.join(directory_path, f))
+                 and f != exclude_file]
+        return files
+    except FileNotFoundError:
+        print(f"Directory not found: {directory_path}")
+        return []
+    except PermissionError:
+        print(f"Permission denied: {directory_path}")
+        return []
+
+
+def extract_laws_identifier(file_name):
+    pattern = r'_(\d+|[A-Za-z])\.json$'
+    match = re.search(pattern, file_name)
+    if match:
+        return match.group(1)
+    else:
+        return None
+
+
+def sort_files(files):
+    def sort_key(file_name):
+        identifier = extract_laws_identifier(file_name)
+        if identifier is None:
+            return (float('inf'), '')
+        if identifier.isalpha():
+            return (0, identifier)
+        else:
+            return (1, int(identifier))
+    return sorted(files, key=sort_key)
+
+def sanitize_filename(file_name):
+    return file_name.replace("/", "_").replace("\\", "_")
 
 def write_to_json(data, file_name) -> None:
     os.makedirs(DIR, exist_ok=True)
@@ -114,9 +157,77 @@ def get_laws_by_alphabet(base_url=BASE_URL, laws_list=None) -> list:
     return laws_info
 
 
+def display_available_laws():
+    laws = list_files_in_directory(os.path.join(DIR, ALPHAB_LAWS_LIST_DIR), "full_laws_list.json" )
+    sort_law = sort_files(laws)
+    print("Title \t\t Description")
+    for law in sort_law:
+        print(f"== {extract_laws_identifier(law)} ==")
+        content = load_json_data(os.path.join(ALPHAB_LAWS_LIST_DIR,law))
+        for index, item in enumerate(content):
+            print(f"{index+1} - {item['title']}      {item['description'][:80]} ")
+    return sort_files(laws)
+
+
+async def download_single_pdf(pdf_path, session, pdf_link, semaphore, retries=0, max_retries=5):
+    async with semaphore:
+        try:
+            async with session.get(pdf_link, timeout=aiohttp.ClientTimeout(total=60)) as response:
+                if response.status == 200:
+                    with open(pdf_path, 'wb') as f:
+                        f.write(await response.read())
+                else:
+                    print(f"Failed to download {pdf_link}: Status {response.status}")
+        except aiohttp.ClientOSError as e:
+            if retries < max_retries:
+                print(f"Retry {retries + 1} for {pdf_link} after error: {e}")
+                await asyncio.sleep(2 ** retries)  # Exponential backoff
+                await download_single_pdf(pdf_path, session, pdf_link, semaphore, retries + 1)
+            else:
+                print(f"Failed to download {pdf_link} after {max_retries} retries")
+        except Exception as e:
+            print(f"Unexpected error for {pdf_link}: {e}")
+
+async def download_all_pdfs():
+    if os.path.exists(PDF_DIR):
+        shutil.rmtree(PDF_DIR)
+        print(f"Deleted existing directory: {PDF_DIR}")
+    
+    os.makedirs(PDF_DIR, exist_ok=True)
+    print(f"Created new directory: {PDF_DIR}")
+    
+    laws = list_files_in_directory(os.path.join(DIR, ALPHAB_LAWS_LIST_DIR), "full_laws_list.json")
+    sort_law = sort_files(laws)
+
+    semaphore = asyncio.Semaphore(SEMAPHORE_LIMIT)
+
+    async with aiohttp.ClientSession() as session:
+        for index, law in enumerate(sort_law):
+            alphabetic_file_name = os.path.join(PDF_DIR, extract_laws_identifier(law))
+            print(alphabetic_file_name)
+            os.makedirs(alphabetic_file_name, exist_ok=True)
+            content = load_json_data(os.path.join(ALPHAB_LAWS_LIST_DIR, law))
+
+            tasks = [download_single_pdf(
+                os.path.join(alphabetic_file_name, f"{sanitize_filename(item['title'])}.pdf"),
+                session,
+                item['pdf_link'],
+                semaphore
+            ) for item in content]
+
+            for task in async_tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+                await task
+
+            if index < len(sort_law) - 1:
+                await asyncio.sleep(DELAY_BETWEEN_LAWS)
+
+def download_pdf():
+    asyncio.run(download_all_pdfs())
 
 # home_page_list()
 # data = load_json_data(LAWS_LIST)
 # print(data)
-get_laws_alphabetically_list()
-get_laws_by_alphabet()
+# get_laws_alphabetically_list()
+# get_laws_by_alphabet()
+# print(display_available_laws())
+download_pdf()
