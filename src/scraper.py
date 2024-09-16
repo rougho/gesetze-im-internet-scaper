@@ -113,7 +113,10 @@ class LawScraper:
         Returns:
             str: Sanitized filename.
         """
-        return file_name.replace("/", "_").replace("\\", "_")
+        filename = file_name.replace(':', '_').replace('?', '_')
+        # Replace backslashes with underscores
+        filename = filename.replace('\\', '_')
+        return filename
 
     def write_to_json(self, data: dict, file_name: str) -> None:
         """
@@ -197,8 +200,7 @@ class LawScraper:
                 data = [{"text": li.find("a").text, "href": li.find("a").get("href")} for li in elements if li.find("a")]
                 self.write_to_json(data, self.HOME_PAGE_LIST_FNAME)
                 return data
-        print("Navigation element not found.")
-        exit(1)
+        raise NavigationElementNotFoundError("Navigation element not found.")
 
     def get_laws_alphabetically_list(self) -> list:
         """
@@ -387,3 +389,8 @@ class LawScraper:
         laws_list = self.get_laws_alphabetically_list()
         self.get_laws_by_alphabet(laws_list=laws_list)
         self.download_all_pdfs()
+
+
+class NavigationElementNotFoundError(Exception):
+    """Exception raised when a navigation element is not found."""
+    pass
